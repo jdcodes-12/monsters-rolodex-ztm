@@ -1,94 +1,75 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import CardList from './components/card-list/card-list.component';
 import SearchBox from './components/searchbox/searchbox.component';
 
-/*
-  "Render & Re-Render Flow"
-  Class Component Lifecycle (Execution Order):
-    1. constructor 
-    2. render()
-    3. Lifecycle Method: componentDidMount()
-    4. Lifecycle Method: 
-*/
 
-class App extends Component {
-  constructor() {
-    super();
+const App = () => {
+  const [monstersList, setMonstersList] = useState([]);
+  const [filteredMonsters, setFilteredMonsters] = useState(monstersList);
+  const [searchField, setSearchField] = useState('');
 
-    /*
-      Important: ReactDOM uses the `key` or `id` value to know what to rerender an element. This means that React will ONLY rerender what has changed & not the whole component. This increases performance by reducing what needs to be rerendered. (Keeping call stack clean). 
+  console.log('render');
+  console.log(searchField);
 
-      React will hide the key value when converting to HTML. It's only needed for React, not HTML.
-    */
-    this.state = {
-      monsters: [],
-      searchField: '', // ADd this prop to state to not modify original list
-    }
-    console.log('constructor');
-  }
+  // infinite re-rendering of the FC, if no side effect is used.
+  // need to utilize useEffect(). This is b/c fetching from external
+  // source will always send an array of data in NEW MEMORY (even if
+  // the data is the same). The state is pointed to the new memory. 
+  // casuing state to update & re-render the entire FC, over and over.
 
-  /* Used to setup intial state once the component is mounted. Mounting = intially put on the DOM. This event only happens once*/
-  componentDidMount() {
-    console.log('componentDidMount');
+  // fetch('https://jsonplaceholder.typicode.com/users')
+  //   .then((response) => response.json())
+  //   .then((users) => setMonstersList(users));
+
+  // Trigger on mount. Then only use this function when the state
+  // when needed again. In this case, don't need to retrigger, so 
+  // put an empty array
+  useEffect(() => {
+    console.log('fetch effect fire');
     fetch('https://jsonplaceholder.typicode.com/users')
-      .then(response => response.json())
-      .then(monsterData => {
-        this.setState(
-          () => {
-            return { monsters: monsterData};
-          },
-          () => {
-            console.log(this.state);
-          }
-        );
-      });
-  }
+      .then((response) => response.json())
+      .then((users) => setMonstersList(users));
+  }, []);
 
-  // Move to onSearchChagnge; preventing unncessary
-  // memory allocation (won't create anon func over & over
-  // each time the component is rendered)
-  onSearchChange = (event) => {
-    const searchField = event.target.value.toLocaleLowerCase();
-    
-    // Shallow Merge
-    this.setState(() => {
-      return { searchField } // shorthand prop setting
-    });
-  }
-  
-
-  render() {
-    console.log('render');
-
-    // Destructure for readability
-    const { monsters, searchField } = this.state;
-    const { onSearchChange } = this;
-
-    const filteredMonsters = monsters.filter((monster) => {
+  useEffect(() => {
+    console.log('filter effect fired');
+    const newFilteredMonsters = monstersList.filter((monster) => {
       return monster.name.toLocaleLowerCase().includes(searchField);
     })
 
-    return (
-      <div className="App">
-        <h1 className='app-title'>Monsters Rolodex</h1>
-        <input type="search"
-                className='search-box'
-                placeholder='search monster catalog'
-                onChange={onSearchChange}
-        />
-        <CardList monsters={filteredMonsters} />
-      </div>
-    );
+    setFilteredMonsters(newFilteredMonsters);
+  }, [monstersList, searchField]);
+   // filter monsters only if `monsters` or `searchField` changes
+
+  const onSearchChange = (event) => {
+    const searchFieldString = event.target.value.toLocaleLowerCase();
+    setSearchField(searchFieldString); // set searchField
   }
+
+  return (
+    <div className="App">
+      <h1 className='app-title'>Monsters Rolodex</h1>
+      <SearchBox type="search"
+                 className='monsters-search-box'
+                 placeholder='search monster catalog'
+                 onChange={onSearchChange}
+      />
+      <CardList monsters={filteredMonsters}/>
+    </div>
+  )
 }
 
 export default App;
 
 /*
-  When modifying an Array, make sure to keep
-  the structure of the original array - "Immutable"
 
-  This means, DONT modify the array (or other DS) in state! 
-  Do it else where.
+  FC have no lifecycle methods like class (e.g. componentDidMount, componentUnmount, etc.). FC, when used with hooks, are impure functions that use side effects to modify state.
+  
+  Pure functions & Impure functions:
+
+  **Pure** = returns exact samething, when given same args.
+  **Impure** = affects/modifies something outside the function block (side effect).
+
+  FC are rendered everytime state or props change. All the code in the function is re-rendered, not just the return piece. Cannot rerun single parts of a FC. The whole function will rerun.
 */
